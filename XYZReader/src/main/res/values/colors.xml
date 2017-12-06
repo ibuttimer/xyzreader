@@ -1,0 +1,37 @@
+<resources>
+    <color name="photo_placeholder">#ccc</color>
+    <color name="sel_item_pressed">#3fff</color>
+    <color name="sel_item_focused">#2fff</color>
+    <color name="item_ripple">#8fff</color>
+
+
+    <!--
+        https://material.io/color/#!/?view.left=0&view.right=0&primary.color=FFB300&secondary.color=3D5AFE
+      -->
+
+    <color name="appColorPrimary">#ffb300</color>
+    <color name="appColorPrimaryDark">#c68400</color>
+    <color name="appColorPrimaryLight">#ffe54c</color>
+    <color name="appColorPrimaryText">#000000</color>
+    <color name="appColorAccent">#3d5afe</color>
+    <color name="appColorAccentDark">#0031ca</color>
+    <color name="appColorAccentLight">#8187ff</color>
+    <color name="appColorAccentText">#ffffff</color>
+
+    <color name="author_text_colour">#ffffff</color>
+    <!--<color name="detail_byline_backgroung">#333333</color>-->
+    <color name="detail_metabar_container_background">@android:color/white</color>
+    <color name="detail_metabar_background">@color/appColorPrimary</color>
+    <color name="detail_metabar_text">@color/appColorPrimaryText</color>
+    <color name="detail_article_text">@color/appColorPrimaryText</color>
+    <color name="detail_metabar_background_default">#ff333333</color>
+    <color name="detail_metabar_text_default">#ffffffff</color>
+    <color name="detail_statusbar_default">#000000</color>
+
+    <color name="detail_photo_scrim_start">#4d000000</color>
+    <color name="detail_photo_scrim_centre">#00000000</color>
+    <color name="detail_photo_scrim_end">#00000000</color>
+
+    <color name="tab_seperator">#22000000</color>
+
+</resources>

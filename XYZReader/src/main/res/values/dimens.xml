@@ -1,0 +1,32 @@
+<resources>
+    <!-- detail -->
+    <dimen name="detail_title_text_size">28sp</dimen>
+    <dimen name="detail_body_text_size">18sp</dimen>
+    <item name="detail_body_line_spacing_multiplier" format="float" type="fraction">1.25</item>
+    <item name="detail_title_line_spacing_multiplier" format="float" type="fraction">0.9</item>
+
+    <dimen name="fab_elevation">6dp</dimen>
+    <dimen name="fab_press_translation_z">12dp</dimen>
+    <dimen name="fab_margin">24dp</dimen>
+
+
+    <dimen name="toolbar_height">56dp</dimen>
+
+    <dimen name="init_scroll_up_distance">75dp</dimen>
+
+    <dimen name="appbar_elevation">4dp</dimen>
+
+    <dimen name="cardview_margin">4dp</dimen>
+    <dimen name="cardview_image_margin">16dp</dimen>
+    <dimen name="cardview_text_padding">16dp</dimen>
+    <dimen name="cardview_corner">4dp</dimen>
+    <dimen name="item_width">200dp</dimen>
+    <dimen name="text_margin">16dp</dimen>
+
+    <dimen name="collapsing_toolbar_start">48dp</dimen>
+    <dimen name="collapsing_toolbar_end">64dp</dimen>
+
+    <dimen name="app_wrap_content">-2dp</dimen>
+    <dimen name="app_match_parent">-1dp</dimen>
+
+</resources>
