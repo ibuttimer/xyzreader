@@ -46,6 +46,9 @@ import timber.log.Timber;
 public class ArticleListActivity extends AppCompatActivity implements
         LoaderManager.LoaderCallbacks<Cursor> {
 
+
+    public static final String BACK_FROM_DETAIL_ARG = "back_from_detail";
+
     @BindView(R.id.swipe_refresh_layout) SwipeRefreshLayout mSwipeRefreshLayout;
     @BindView(R.id.item_list) RecyclerView mRecyclerView;
     @BindView(R.id.main_toolbar) Toolbar mToolBar;
@@ -71,6 +74,8 @@ public class ArticleListActivity extends AppCompatActivity implements
         ActionBar actionBar = getSupportActionBar();
         if (actionBar != null) {
             actionBar.setDisplayShowTitleEnabled(false);
+            actionBar.setDisplayUseLogoEnabled(true);
+            actionBar.setLogo(R.drawable.logo);
         }
 
         getLoaderManager().initLoader(0, null, this);
@@ -85,7 +90,11 @@ public class ArticleListActivity extends AppCompatActivity implements
         });
 
         if (savedInstanceState == null) {
-            refresh();
+            Bundle bundle = getIntent().getExtras();
+            if ((bundle != null) && !bundle.containsKey(BACK_FROM_DETAIL_ARG)) {
+                refresh();
+            }
+            // else back from detail activity, so no need to refresh as data not changing & singleTop
         }
     }
 

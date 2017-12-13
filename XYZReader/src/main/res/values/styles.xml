@@ -34,6 +34,7 @@
 
     <style name="Theme.Bacon.ToolBar" parent="@style/ThemeOverlay.AppCompat.Dark">
         <item name="android:textColorPrimary">@android:color/white</item>
+        <item name="android:colorBackground">@android:color/transparent</item>
     </style>
 
 </resources>

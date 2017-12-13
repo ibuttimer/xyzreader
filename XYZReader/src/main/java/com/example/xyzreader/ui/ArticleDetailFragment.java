@@ -23,6 +23,8 @@ import android.support.design.widget.AppBarLayout;
 import android.support.design.widget.CollapsingToolbarLayout;
 import android.support.v4.widget.NestedScrollView;
 import android.support.v4.app.ShareCompat;
+import android.support.v7.app.ActionBar;
+import android.support.v7.app.AppCompatActivity;
 import android.support.v7.graphics.Palette;
 import android.text.Html;
 import android.text.method.LinkMovementMethod;
@@ -39,7 +41,8 @@ import com.example.xyzreader.data.ArticleLoader;
 import com.example.xyzreader.util.Dialog;
 import com.example.xyzreader.util.Utils;
 
-import org.jetbrains.annotations.Nullable;
+import android.support.annotation.Nullable;
+import android.support.v7.widget.Toolbar;
 
 import butterknife.BindColor;
 import butterknife.BindDimen;
@@ -65,6 +68,7 @@ public class ArticleDetailFragment extends Fragment implements
     @BindColor(R.color.detail_metabar_background_default) int mDfltMetaBarBgColour;
     @BindColor(R.color.detail_metabar_text_default) int mDfltMetaBarTextColour;
     @BindColor(R.color.detail_statusbar_default) int mDfltStatusBarColour;
+    @BindColor(android.R.color.transparent) int mTransparentColour;
     @BindInt(R.integer.max_palette_colour_count) int mMaxColourCount;
     @BindInt(android.R.integer.config_mediumAnimTime) int mAnimationDuration;
     @BindDimen(R.dimen.init_scroll_up_distance) int mScrollUpDistance;
@@ -75,14 +79,15 @@ public class ArticleDetailFragment extends Fragment implements
     private Cursor mCursor;
     private long mItemId;
     private View mRootView;
-    @ColorInt private int mMutedColor;
-    @ColorInt private int mVibrantColor;
+    private int mPosition;
+    private boolean mIsToolBar;     // flag representing if this object's toolbar is used from the activity's action bar
 
     @BindView(R.id.detail_layout) View mLayoutView;
+    @BindView(R.id.detail_toolbar) Toolbar mToolBar;
     @BindView(R.id.scrollview) NestedScrollView mScrollView;
-    @BindView(R.id.meta_bar_container) MaxWidthLinearLayout mMetaBarContainerView;
+    @BindView(R.id.meta_bar_container) View mMetaBarContainerView;
 
-    @BindView(R.id.action_up) View mUpButton;
+//    @BindView(R.id.action_up) View mUpButton;
 
     @BindView(R.id.photo) DynamicHeightImageView mPhotoView;
     @BindView(R.id.meta_bar) View mMetaBarView;
@@ -94,6 +99,8 @@ public class ArticleDetailFragment extends Fragment implements
 
     private IDetailActivity mActivity;
 
+    private enum ScreenMode { PORTAIT, LANDSCAPE, TABLET_LANDSCAPE };
+
     /**
      * Mandatory empty constructor for the fragment manager to instantiate the
      * fragment (e.g. upon screen orientation changes).
@@ -101,10 +108,11 @@ public class ArticleDetailFragment extends Fragment implements
     public ArticleDetailFragment() {
     }
 
-    public static ArticleDetailFragment newInstance(long itemId) {
+    public static ArticleDetailFragment newInstance(long itemId, int position) {
         Bundle arguments = new Bundle();
         arguments.putLong(ARG_ITEM_ID, itemId);
         ArticleDetailFragment fragment = new ArticleDetailFragment();
+        fragment.mPosition = position;
         fragment.setArguments(arguments);
         return fragment;
     }
@@ -116,6 +124,7 @@ public class ArticleDetailFragment extends Fragment implements
         if (getArguments().containsKey(ARG_ITEM_ID)) {
             mItemId = getArguments().getLong(ARG_ITEM_ID);
         }
+        mIsToolBar = false;
 
         setHasOptionsMenu(true);
     }
@@ -158,9 +167,11 @@ public class ArticleDetailFragment extends Fragment implements
         attach(activity);
     }
 
+
     private void attach(Object container) {
         try {
             mActivity = (IDetailActivity) container;
+            setToolBar();
         } catch (ClassCastException e) {
             Timber.w("Activity must implement interface IDetailActivity");
         }
@@ -183,15 +194,12 @@ public class ArticleDetailFragment extends Fragment implements
         }
     }
 
-    @OnClick(R.id.action_up)
-    public void onUpClick(View view) {
-        mActivity.upClick();
-    }
-
     private void bindViews() {
         if (mRootView == null) {
             return;
         }
+
+        setToolBar();
 
         mBylineView.setMovementMethod(new LinkMovementMethod());
 
@@ -205,22 +213,11 @@ public class ArticleDetailFragment extends Fragment implements
             String photoUrl = mCursor.getString(ArticleLoader.Query.PHOTO_URL);
             final Float aspect = mCursor.getFloat(ArticleLoader.Query.ASPECT_RATIO);
 
-            Activity activity = getActivity();
-            boolean twoStageFadeIn = false;  // 1 stage animation; fade in screen
-            if (!Utils.isPotraitScreen(activity)) {
-                if (Utils.getScreenDpWidth(activity) < mTabletLandBreak) {
-                    // normal landscape, so use 2 stage animation; fade in screen followed by body test
-                    twoStageFadeIn = true;
-                }
-            }
+            /* portrait & tablet landscape - 1 stage animation; fade in screen
+                normal landscape - 2 stage animation; fade in screen followed by body test
+             */
+            boolean twoStageFadeIn = (getScreenMode() == ScreenMode.LANDSCAPE);
 
-            final AnimatorListenerAdapter listenerAdapterY = new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationEnd(Animator animation) {
-                    super.onAnimationEnd(animation);
-                    animateY();
-                }
-            };
             AnimatorListenerAdapter listenerAdapter;
             mScrollView.setAlpha(twoStageFadeIn ? TRANSPARENT : OPAQUE);
             if (twoStageFadeIn) {
@@ -229,11 +226,11 @@ public class ArticleDetailFragment extends Fragment implements
                     public void onAnimationEnd(Animator animation) {
                         super.onAnimationEnd(animation);
 
-                        animateAlpha(mScrollView, listenerAdapterY);
+                        animateAlpha(mScrollView, new YAnimatorListenerAdapter(mScrollView));
                     }
                 };
             } else {
-                listenerAdapter = listenerAdapterY;
+                listenerAdapter = new YAnimatorListenerAdapter(mScrollView);
             }
             animateAlpha(mRootView, listenerAdapter);
 
@@ -284,18 +281,25 @@ public class ArticleDetailFragment extends Fragment implements
                                         Palette p = new Palette.Builder(bitmap)
                                                 .maximumColorCount(mMaxColourCount)
                                                 .generate();
-                                        // set metabar background colour
-                                        mMutedColor = p.getDarkMutedColor(mDfltMetaBarBgColour);
-                                        mMetaBarView.setBackgroundColor(mMutedColor);
-                                        mLayoutView.setBackgroundColor(mMutedColor);
-                                        // set metabar text colour
-                                        mVibrantColor = p.getLightVibrantColor(mDfltMetaBarTextColour);
-                                        for (TextView textView : new TextView[]{mTitleView, mBylineView}) {
-                                            textView.setTextColor(mVibrantColor);
-                                        }
 
+                                        @ColorInt int mutedColor = p.getDarkMutedColor(mDfltMetaBarBgColour);
+                                        @ColorInt int vibrantColor = p.getLightVibrantColor(mDfltMetaBarTextColour);
+                                        @ColorInt int furthestColor = Utils.getFurthestColour(mMetaBarContainerBgColour, p);
+
+                                        // set metabar background colour
+//                                        if (getScreenMode() == ScreenMode.TABLET_LANDSCAPE) {
+//                                            mToolBar.setBackgroundColor(mTransparentColour);
+//                                        } else {
+//                                            mToolBar.setBackgroundColor(mutedColor);
+//                                        }
+                                        mMetaBarView.setBackgroundColor(mutedColor);
+                                        mLayoutView.setBackgroundColor(mutedColor);
+                                        // set metabar text colour
+                                        for (TextView textView : new TextView[]{mTitleView, mBylineView}) {
+                                            textView.setTextColor(vibrantColor);
+                                        }
                                         // set metabar body text colour
-                                        mBodyView.setTextColor(Utils.getFurthestColour(mMetaBarContainerBgColour, p));
+                                        mBodyView.setTextColor(furthestColor);
                                     }
                                 }
 
@@ -310,6 +314,70 @@ public class ArticleDetailFragment extends Fragment implements
                 textView.setText(R.string.not_available);
             }
         }
+    }
+
+    private ScreenMode getScreenMode() {
+        Activity activity = getActivity();
+        ScreenMode mode = ScreenMode.PORTAIT;
+        if (!Utils.isPotraitScreen(activity)) {
+            if (Utils.getScreenDpWidth(activity) < mTabletLandBreak) {
+                mode = ScreenMode.LANDSCAPE;
+            } else {
+                mode = ScreenMode.TABLET_LANDSCAPE;
+            }
+        }
+        return mode;
+    }
+
+    public void animateY(View view) {
+        ObjectAnimator objAnimator = ObjectAnimator.ofInt(mScrollView, "scrollY", mScrollUpDistance);
+        objAnimator.setRepeatCount(1);
+        objAnimator.setRepeatMode(ValueAnimator.REVERSE);
+        objAnimator.addListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animator) {
+                animator.setTarget(null);
+            }
+        });
+        objAnimator.setDuration(mAnimationDuration)
+                .start();
+    }
+
+
+    public void animateAlpha(View view, AnimatorListenerAdapter listenerAdapter) {
+        view.setVisibility(View.VISIBLE);
+        view.setAlpha(TRANSPARENT);
+        ViewPropertyAnimator propertyAnimator = view.animate();
+        propertyAnimator.setListener(listenerAdapter)
+                .setDuration(mAnimationDuration)
+                .alpha(OPAQUE);
+    }
+
+    public void setToolBar() {
+        /* setPrimaryItem() in the adapter is called multiple times, and if this is called from there
+            and sets the action bar it results in endless calls, hence the mIsToolBar flag
+         */
+        boolean isToolBar = false;
+        if (mActivity != null) {
+            int current = mActivity.getCurrentItem();
+            if (mPosition == current) {
+                try {
+                    AppCompatActivity activity = (AppCompatActivity) getActivity();
+                    if (!mIsToolBar) {
+                        activity.setSupportActionBar(mToolBar);
+                        ActionBar actionBar = activity.getSupportActionBar();
+                        if (actionBar != null) {
+                            actionBar.setDisplayHomeAsUpEnabled(true);
+                            actionBar.setDisplayShowTitleEnabled(false);
+                            isToolBar = true;
+                        }
+                    }
+                } catch (ClassCastException e) {
+                    Timber.w("Activity not AppCompatActivity");
+                }
+            }
+        }
+        mIsToolBar = isToolBar;
     }
 
     @Override
@@ -342,36 +410,27 @@ public class ArticleDetailFragment extends Fragment implements
         bindViews();
     }
 
-    public void animateY() {
-        ObjectAnimator objAnimator = ObjectAnimator.ofInt(mScrollView, "scrollY", mScrollUpDistance);
-        objAnimator.setRepeatCount(1);
-        objAnimator.setRepeatMode(ValueAnimator.REVERSE);
-        objAnimator.addListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(Animator animator) {
-                animator.setTarget(null);
-            }
-        });
-        objAnimator.setDuration(mAnimationDuration)
-                .start();
-    }
-
-
-    public void animateAlpha(View view, AnimatorListenerAdapter listenerAdapter) {
-        view.setVisibility(View.VISIBLE);
-        view.setAlpha(TRANSPARENT);
-        ViewPropertyAnimator propertyAnimator = view.animate();
-        propertyAnimator.setListener(listenerAdapter)
-            .setDuration(mAnimationDuration)
-            .alpha(OPAQUE);
-    }
 
 
     interface IDetailActivity {
-        void upClick();
+        int getCurrentItem();
     }
 
 
+    class YAnimatorListenerAdapter extends AnimatorListenerAdapter {
 
+        View view;
+
+        public YAnimatorListenerAdapter(View view) {
+            this.view = view;
+        }
+
+        @Override
+        public void onAnimationEnd(Animator animation) {
+            super.onAnimationEnd(animation);
+            animateY(view);
+        }
+
+    }
 
 }

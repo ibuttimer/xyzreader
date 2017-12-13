@@ -6,6 +6,7 @@ import android.app.LoaderManager;
 import android.content.Intent;
 import android.content.Loader;
 import android.database.Cursor;
+import android.database.DataSetObserver;
 import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Build;
@@ -15,6 +16,7 @@ import android.support.v4.view.ViewPager;
 import android.support.v7.app.AppCompatActivity;
 import android.util.TypedValue;
 import android.view.View;
+import android.view.ViewGroup;
 
 import com.example.xyzreader.R;
 import com.example.xyzreader.data.ArticleLoader;
@@ -23,6 +25,9 @@ import com.example.xyzreader.data.ItemsContract;
 import butterknife.BindColor;
 import butterknife.BindView;
 import butterknife.ButterKnife;
+import timber.log.Timber;
+
+import static com.example.xyzreader.ui.ArticleListActivity.BACK_FROM_DETAIL_ARG;
 
 
 /**
@@ -33,6 +38,7 @@ public class ArticleDetailActivity extends AppCompatActivity
 
     private Cursor mCursor;
     private long mStartId;
+    private int mSelectedPos;
 
     @BindColor(R.color.tab_seperator) int mTabSepColour;
 
@@ -51,6 +57,8 @@ public class ArticleDetailActivity extends AppCompatActivity
 
         ButterKnife.bind(this);
 
+        mSelectedPos = -1;
+
         mPagerAdapter = new MyPagerAdapter(getFragmentManager());
 
         mPager.setAdapter(mPagerAdapter);
@@ -64,7 +72,9 @@ public class ArticleDetailActivity extends AppCompatActivity
             @Override
             public void onPageSelected(int position) {
                 if (mCursor != null) {
-                    mCursor.moveToPosition(position);
+                    if (mCursor.moveToPosition(position)) {
+                        mSelectedPos = position;
+                    }
                 }
             }
         });
@@ -80,6 +90,15 @@ public class ArticleDetailActivity extends AppCompatActivity
         }
 
         getLoaderManager().initLoader(0, null, this);
+    }
+
+
+    @android.support.annotation.Nullable
+    @Override
+    public Intent getSupportParentActivityIntent() {
+        Intent intent = super.getSupportParentActivityIntent();
+        intent.putExtra(BACK_FROM_DETAIL_ARG, true);
+        return intent;
     }
 
     @Override
@@ -98,6 +117,7 @@ public class ArticleDetailActivity extends AppCompatActivity
                 if (mCursor.moveToPosition(i)) {
                     if (mCursor.getLong(ArticleLoader.Query._ID) == mStartId) {
                         mPager.setCurrentItem(i, false);
+                        mSelectedPos = i;
                         break;
                     }
                 }
@@ -113,6 +133,7 @@ public class ArticleDetailActivity extends AppCompatActivity
     }
 
     private class MyPagerAdapter extends FragmentStatePagerAdapter {
+
         MyPagerAdapter(FragmentManager fm) {
             super(fm);
         }
@@ -120,18 +141,42 @@ public class ArticleDetailActivity extends AppCompatActivity
         @Override
         public Fragment getItem(int position) {
             mCursor.moveToPosition(position);
-            return ArticleDetailFragment.newInstance(mCursor.getLong(ArticleLoader.Query._ID));
+            return ArticleDetailFragment.newInstance(mCursor.getLong(ArticleLoader.Query._ID), position);
         }
 
         @Override
         public int getCount() {
             return (mCursor != null) ? mCursor.getCount() : 0;
         }
+
+
+        @Override
+        public void finishUpdate(ViewGroup container) {
+            super.finishUpdate(container);
+        }
+
+        @Override
+        public void setPrimaryItem(ViewGroup container, int position, Object object) {
+            super.setPrimaryItem(container, position, object);
+            Timber.i("setPrimaryItem " + position + " current " + getCurrentItem());
+
+            if (object != null) {
+                try {
+                    ArticleDetailFragment fragment = (ArticleDetailFragment) object;
+                    fragment.setToolBar();
+                } catch (ClassCastException e) {
+                    Timber.w("Primary item not ArticleDetailFragment");
+                }
+            }
+        }
     }
 
     @Override
-    public void upClick() {
-        // treat as back key to avoid re-querying db which happens if onSupportNavigateUp() is used
-        onBackPressed();
+    public int getCurrentItem() {
+        int current = -1;
+        if (mPager != null) {
+            current = mPager.getCurrentItem();
+        }
+        return current;
     }
 }
